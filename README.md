@@ -135,7 +135,7 @@ Reusable UI components and widgets to ensure UI consistency and cleaner code.
 
 🔧 Setup Instructions
 1️⃣ Clone the Repository
-git clone https://github.com/your-username/cafe_customer.git
+git clone https://github.com/boopathi-376/cafe_customer.git
 cd cafe_customer
 
 2️⃣ Install Dependencies
