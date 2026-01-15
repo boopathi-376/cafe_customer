@@ -1,13 +1,12 @@
-
 import 'package:cafe/view/customer_menu.dart';
 import 'package:flutter/material.dart';
 
 import '../view/cart_screen.dart';
 import '../view/home_screen.dart';
-import '../view/myOrder_Screen.dart';
-import '../view/profileScreen.dart';
+import '../view/view_orders_screen.dart'; // Renamed from myOrder_Screen.dart
+import '../view/profile_screen.dart'; // Renamed from profileScreen.dart
 
- // Assuming you have a menu screen
+// Assuming you have a menu screen
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -19,7 +18,6 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _selectedIndex = 0;
   late final PageController _pageController;
-
 
   @override
   void initState() {
@@ -36,15 +34,13 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-
-
     return Scaffold(
       body: PageView(
         controller: _pageController,
         physics: const NeverScrollableScrollPhysics(), // Disable swipe
         children: [
           HomeScreen(),
-          TodaysSpecialScreenState(),// Replace with your list
+          TodaysSpecialScreenState(), // Replace with your list
           CartScreen(),
           ViewOrdersScreen(),
           ProfileScreen(),
@@ -56,10 +52,22 @@ class _MainScreenState extends State<MainScreen> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
-          BottomNavigationBarItem(icon: Icon(Icons.local_fire_department), label: "Today'S"),
-          BottomNavigationBarItem(icon: Icon(Icons.shopping_bag_outlined), label: 'Carts'),
-          BottomNavigationBarItem(icon: Icon(Icons.emoji_food_beverage_outlined), label: 'Order'),
-          BottomNavigationBarItem(icon: Icon(Icons.person_2_outlined), label: 'Settings'),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.local_fire_department),
+            label: "Today'S",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.shopping_bag_outlined),
+            label: 'Carts',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.emoji_food_beverage_outlined),
+            label: 'Order',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_2_outlined),
+            label: 'Settings',
+          ),
         ],
       ),
     );

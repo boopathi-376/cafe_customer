@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../models/cartItem.dart';
+import '../models/cart_item.dart';
 import '../models/menu_items.dart';
 
 class CartEntry {
@@ -55,22 +55,26 @@ class CartProvider with ChangeNotifier {
 
   int get itemCount => _items.length;
 
-  void loadFromFirestore(List<CartItem> cartItems, List<MenuItem> allMenuItems) {
+  void loadFromFirestore(
+    List<CartItem> cartItems,
+    List<MenuItem> allMenuItems,
+  ) {
     _items.clear();
 
     for (var cart in cartItems) {
       final matched = allMenuItems.firstWhere(
-            (item) => item.menuId == cart.menuId, // ✅ FIXED: match with menuId
-        orElse: () => MenuItem(
-          menuId: cart.menuId,
-          name: cart.name,
-          description: cart.subtitle ?? '',
-          imageUrl: cart.imageUrl,
-          price: cart.price,
-          category: '',
-          isAvailable: true,
-          isFeatured: false,
-        ),
+        (item) => item.menuId == cart.menuId, // ✅ FIXED: match with menuId
+        orElse:
+            () => MenuItem(
+              menuId: cart.menuId,
+              name: cart.name,
+              description: cart.subtitle ?? '',
+              imageUrl: cart.imageUrl,
+              price: cart.price,
+              category: '',
+              isAvailable: true,
+              isFeatured: false,
+            ),
       );
 
       _items.add(CartEntry(menuItem: matched, quantity: cart.quantity));

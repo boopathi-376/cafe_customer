@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'appColors.dart';
-
+import 'app_colors.dart';
 
 class AppTheme {
   static ThemeData get darkTheme {
@@ -24,7 +23,9 @@ class AppTheme {
         backgroundColor: AppColors.surface,
         selectedColor: AppColors.primary,
         labelStyle: AppTextStyles.chipText,
-        secondaryLabelStyle: AppTextStyles.chipText.copyWith(color: AppColors.white),
+        secondaryLabelStyle: AppTextStyles.chipText.copyWith(
+          color: AppColors.white,
+        ),
         brightness: Brightness.dark,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       ),

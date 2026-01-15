@@ -41,7 +41,10 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
   @override
   void initState() {
     super.initState();
-    final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthenticationProvider>(
+      context,
+      listen: false,
+    );
     final userProvider = Provider.of<UserProvider>(context, listen: false);
 
     final uid = authProvider.user?.uid;
@@ -53,10 +56,15 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
         setState(() {
           _addresses = addrList;
           _selectedAddress = addrList.firstWhere(
-                (a) => a.isCurrent,
-            orElse: () => addrList.isNotEmpty
-                ? addrList.first
-                : AddressModel(address: "No saved addresses", label: ""),
+            (a) => a.isCurrent,
+            orElse:
+                () =>
+                    addrList.isNotEmpty
+                        ? addrList.first
+                        : AddressModel(
+                          address: "No saved addresses",
+                          label: "",
+                        ),
           );
         });
       });
@@ -66,16 +74,20 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
   Future<void> _placeOrder() async {
     try {
       final cartProvider = Provider.of<CartProvider>(context, listen: false);
-      final List<OrderItem> items = widget.cartItems.map((item) {
-        return OrderItem(
-          menuItemId: item['menuItemId'] ?? '',
-          name: item['name'] ?? '',
-          quantity: item['quantity'] ?? 1,
-          price: (item['price'] ?? 0).toDouble(),
-        );
-      }).toList();
+      final List<OrderItem> items =
+          widget.cartItems.map((item) {
+            return OrderItem(
+              menuItemId: item['menuItemId'] ?? '',
+              name: item['name'] ?? '',
+              quantity: item['quantity'] ?? 1,
+              price: (item['price'] ?? 0).toDouble(),
+            );
+          }).toList();
 
-      final double finalAmount = _orderType == "Delivery" ? widget.totalAmount + 2 : widget.totalAmount;
+      final double finalAmount =
+          _orderType == "Delivery"
+              ? widget.totalAmount + 2
+              : widget.totalAmount;
 
       final order = CafeOrder(
         uid: widget.customeruid,
@@ -83,9 +95,10 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
         customerPhone: widget.customerPhone,
         items: items,
         totalAmount: finalAmount,
-        notes: _orderType == "Delivery"
-            ? _selectedAddress?.address ?? "No address"
-            : "Pickup from café",
+        notes:
+            _orderType == "Delivery"
+                ? _selectedAddress?.address ?? "No address"
+                : "Pickup from café",
       );
 
       final docRef = await OrderService().placeOrder(order);
@@ -95,47 +108,66 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
           .doc(docRef.id)
           .update({'orderId': docRef.id});
 
-
       cartProvider.clearCart();
       await CartService().clearCart(widget.customeruid);
 
+      if (!context.mounted) return;
+
       showDialog(
         context: context,
-        builder: (_) => AlertDialog(
-          title: const Text("Order Placed 🎉"),
-          content: Text("Your order was placed successfully.\nOrder ID: ${docRef.id}"),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.popUntil(context, (route) => route.isFirst);
-              },
-              child: const Text("OK"),
-            )
-          ],
-        ),
+        builder:
+            (_) => AlertDialog(
+              title: const Text("Order Placed 🎉"),
+              content: Text(
+                "Your order was placed successfully.\nOrder ID: ${docRef.id}",
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    Navigator.popUntil(context, (route) => route.isFirst);
+                  },
+                  child: const Text("OK"),
+                ),
+              ],
+            ),
       );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error placing order: $e")),
-      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error placing order: $e")));
+      }
     }
   }
 
-  Widget _summaryRow(String label, String value, TextTheme textTheme,
-      {bool bold = false, Color? color}) {
+  Widget _summaryRow(
+    String label,
+    String value,
+    TextTheme textTheme, {
+    bool bold = false,
+    Color? color,
+  }) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(label,
-            style: bold
-                ? textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)
-                : textTheme.bodyMedium),
-        Text(value,
-            style: bold
-                ? textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold, color: color)
-                : textTheme.bodyMedium),
+        Text(
+          label,
+          style:
+              bold
+                  ? textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)
+                  : textTheme.bodyMedium,
+        ),
+        Text(
+          value,
+          style:
+              bold
+                  ? textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  )
+                  : textTheme.bodyMedium,
+        ),
       ],
     );
   }
@@ -153,141 +185,172 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
         centerTitle: true,
         backgroundColor: colorScheme.primary,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text("Order Type", style: textTheme.titleMedium),
-            const SizedBox(height: 10),
-            ToggleButtons(
-              isSelected: _isSelected,
-              onPressed: (index) {
-                setState(() {
-                  _isSelected = [index == 0, index == 1];
-                  _orderType = index == 0 ? "Delivery" : "Pickup";
-                });
-              },
-              borderRadius: BorderRadius.circular(10),
-              selectedColor: colorScheme.onPrimary,
-              fillColor: colorScheme.primary,
-              children: const [
-                Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Text("Delivery")),
-                Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 20),
-                    child: Text("Pickup")),
-              ],
-            ),
-            const SizedBox(height: 24),
-
-            if (_orderType == "Delivery") ...[
-              Text("Delivery Address", style: textTheme.titleMedium),
-              const SizedBox(height: 12),
-              DropdownButtonFormField<AddressModel>(
-                value: _selectedAddress,
-                icon: const Icon(Icons.arrow_drop_down),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: colorScheme.surface,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-                items: _addresses.map((address) {
-                  return DropdownMenuItem<AddressModel>(
-                    value: address,
-                    child: Text(
-                      "${address.label} - ${address.address}",
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() => _selectedAddress = value);
-                },
-              ),
-              const SizedBox(height: 24),
-            ],
-
-            Text("Payment Method", style: textTheme.titleMedium),
-            const SizedBox(height: 12),
-            Column(
-              children: [
-                RadioListTile(
-                  value: 'Card',
-                  groupValue: _selectedPaymentMethod,
-                  title: const Text("Credit/Debit Card"),
-                  secondary: const Icon(Icons.credit_card),
-                  onChanged: (value) =>
-                      setState(() => _selectedPaymentMethod = value!),
-                ),
-                RadioListTile(
-                  value: 'UPI',
-                  groupValue: _selectedPaymentMethod,
-                  title: const Text("UPI"),
-                  secondary: const Icon(Icons.qr_code),
-                  onChanged: (value) =>
-                      setState(() => _selectedPaymentMethod = value!),
-                ),
-                RadioListTile(
-                  value: 'Cash on Delivery',
-                  groupValue: _selectedPaymentMethod,
-                  title: const Text("Cash on Delivery"),
-                  secondary: const Icon(Icons.money),
-                  onChanged: (value) =>
-                      setState(() => _selectedPaymentMethod = value!),
-                ),
-              ],
-            ),
-            const Spacer(),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: colorScheme.surface,
-                borderRadius: BorderRadius.circular(16),
-              ),
+      body: Column(
+        // Main column structure
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _summaryRow("Items Total",
-                      "₹${widget.totalAmount.toStringAsFixed(2)}", textTheme),
-                  const SizedBox(height: 8),
-                  _summaryRow("Delivery", _orderType == "Delivery" ? "₹2.00" : "₹0.00", textTheme),
-                  const Divider(height: 24),
-                  _summaryRow(
-                    "Total",
-                    "₹${_orderType == "Delivery" ? (widget.totalAmount + 2).toStringAsFixed(2) : widget.totalAmount.toStringAsFixed(2)}",
-                    textTheme,
-                    bold: true,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _placeOrder,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: colorScheme.primary,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
+                  Text("Order Type", style: textTheme.titleMedium),
+                  const SizedBox(height: 10),
+                  ToggleButtons(
+                    isSelected: _isSelected,
+                    onPressed: (index) {
+                      setState(() {
+                        _isSelected = [index == 0, index == 1];
+                        _orderType = index == 0 ? "Delivery" : "Pickup";
+                      });
+                    },
+                    borderRadius: BorderRadius.circular(10),
+                    selectedColor: colorScheme.onPrimary,
+                    fillColor: colorScheme.primary,
+                    children: const [
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        child: Text("Delivery"),
                       ),
-                      child: Text(
-                        "Place Order",
-                        style: textTheme.labelLarge?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onPrimary,
+                      Padding(
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        child: Text("Pickup"),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+
+                  if (_orderType == "Delivery") ...[
+                    Text("Delivery Address", style: textTheme.titleMedium),
+                    const SizedBox(height: 12),
+                    DropdownButtonFormField<AddressModel>(
+                      value: _selectedAddress,
+                      icon: const Icon(Icons.arrow_drop_down),
+                      decoration: InputDecoration(
+                        filled: true,
+                        fillColor: colorScheme.surface,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
                         ),
                       ),
+                      items:
+                          _addresses.map((address) {
+                            return DropdownMenuItem<AddressModel>(
+                              value: address,
+                              child: Text(
+                                "${address.label} - ${address.address}",
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            );
+                          }).toList(),
+                      onChanged: (value) {
+                        setState(() => _selectedAddress = value);
+                      },
                     ),
+                    const SizedBox(height: 24),
+                  ],
+
+                  Text("Payment Method", style: textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  Column(
+                    children: [
+                      RadioListTile(
+                        value: 'Card',
+                        groupValue: _selectedPaymentMethod,
+                        title: const Text("Credit/Debit Card"),
+                        secondary: const Icon(Icons.credit_card),
+                        onChanged:
+                            (value) =>
+                                setState(() => _selectedPaymentMethod = value!),
+                      ),
+                      RadioListTile(
+                        value: 'UPI',
+                        groupValue: _selectedPaymentMethod,
+                        title: const Text("UPI"),
+                        secondary: const Icon(Icons.qr_code),
+                        onChanged:
+                            (value) =>
+                                setState(() => _selectedPaymentMethod = value!),
+                      ),
+                      RadioListTile(
+                        value: 'Cash on Delivery',
+                        groupValue: _selectedPaymentMethod,
+                        title: const Text("Cash on Delivery"),
+                        secondary: const Icon(Icons.money),
+                        onChanged:
+                            (value) =>
+                                setState(() => _selectedPaymentMethod = value!),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            )
-          ],
-        ),
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color:
+                  colorScheme
+                      .surface, // Changed from surfaceContainerHighest to match style
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ), // Only top radius for bottom sheet feel
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 10,
+                  offset: Offset(0, -5),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                _summaryRow(
+                  "Items Total",
+                  "₹${widget.totalAmount.toStringAsFixed(2)}",
+                  textTheme,
+                ),
+                const SizedBox(height: 8),
+                _summaryRow(
+                  "Delivery",
+                  _orderType == "Delivery" ? "₹2.00" : "₹0.00",
+                  textTheme,
+                ),
+                const Divider(height: 24),
+                _summaryRow(
+                  "Total",
+                  "₹${_orderType == "Delivery" ? (widget.totalAmount + 2).toStringAsFixed(2) : widget.totalAmount.toStringAsFixed(2)}",
+                  textTheme,
+                  bold: true,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: _placeOrder,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: colorScheme.primary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(
+                      "Place Order",
+                      style: textTheme.labelLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                        color: colorScheme.onPrimary,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

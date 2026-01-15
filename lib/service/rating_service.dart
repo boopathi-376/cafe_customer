@@ -1,10 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-import '../models/ratingModel.dart';
+import '../models/rating_model.dart';
 
 class RatingService {
-  final CollectionReference ratingCollection =
-  FirebaseFirestore.instance.collection('ratings');
+  final CollectionReference ratingCollection = FirebaseFirestore.instance
+      .collection('ratings');
 
   Future<void> submitRating(RatingModel rating) async {
     final docId = "${rating.orderId}_${rating.menuItemId}";

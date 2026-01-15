@@ -42,15 +42,18 @@ class AuthenticationProvider with ChangeNotifier {
 
       final firebaseUser = FirebaseAuth.instance.currentUser;
       if (firebaseUser != null && !firebaseUser.emailVerified) {
-        _error = "Please verify your email address.";
+        _error = "Please verify your email address before logging in.";
         await FirebaseAuth.instance.signOut();
         _user = null;
         return false;
       }
 
       return true;
+    } on FirebaseAuthException catch (e) {
+      _error = _mapFirebaseError(e);
+      return false;
     } catch (e) {
-      _error = e.toString();
+      _error = "An unexpected error occurred. Please try again.";
       return false;
     } finally {
       _isLoading = false;
@@ -79,12 +82,35 @@ class AuthenticationProvider with ChangeNotifier {
       );
 
       return true;
+    } on FirebaseAuthException catch (e) {
+      _error = _mapFirebaseError(e);
+      return false;
     } catch (e) {
-      _error = e.toString();
+      _error = "An unexpected error occurred. Please try again.";
       return false;
     } finally {
       _isLoading = false;
       notifyListeners();
+    }
+  }
+
+  String _mapFirebaseError(FirebaseAuthException e) {
+    switch (e.code) {
+      case 'user-not-found':
+      case 'invalid-email':
+      case 'wrong-password':
+      case 'invalid-credential':
+        return 'Invalid email or password.';
+      case 'email-already-in-use':
+        return 'An account already exists for that email.';
+      case 'weak-password':
+        return 'The password provided is too weak.';
+      case 'network-request-failed':
+        return 'Please check your internet connection.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      default:
+        return 'Authentication failed. Please try again.';
     }
   }
 
@@ -102,6 +128,9 @@ class AuthenticationProvider with ChangeNotifier {
           ),
         );
       }
+    } on FirebaseAuthException catch (e) {
+      _error = _mapFirebaseError(e);
+      notifyListeners();
     } catch (e) {
       _error = "Failed to resend email verification.";
       notifyListeners();

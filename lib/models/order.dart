@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'enums.dart';
 
 class CafeOrder {
   final String? id;
@@ -7,10 +8,10 @@ class CafeOrder {
   final String customerPhone;
   final List<OrderItem> items;
   final double totalAmount;
-  final String status;
+  final OrderStatus status; // Changed to Enum
   final DateTime createdAt;
   final String? notes;
-  final bool hasRated; // ✅ NEW FIELD
+  final bool hasRated;
 
   CafeOrder({
     this.id,
@@ -19,10 +20,10 @@ class CafeOrder {
     required this.customerPhone,
     required this.items,
     required this.totalAmount,
-    this.status = 'pending',
+    this.status = OrderStatus.pending,
     DateTime? createdAt,
     this.notes,
-    this.hasRated = false, // ✅ default to false
+    this.hasRated = false,
   }) : createdAt = createdAt ?? DateTime.now();
 
   factory CafeOrder.fromFirestore(DocumentSnapshot doc) {
@@ -32,14 +33,18 @@ class CafeOrder {
       uid: data['uid'] ?? '',
       customerName: data['customerName'] ?? '',
       customerPhone: data['customerPhone'] ?? '',
-      items: (data['items'] as List)
-          .map((item) => OrderItem.fromMap(item))
-          .toList(),
+      items:
+          (data['items'] as List)
+              .map((item) => OrderItem.fromMap(item))
+              .toList(),
       totalAmount: (data['totalAmount'] ?? 0.0).toDouble(),
-      status: data['status'] ?? 'pending',
+      status: OrderStatus.values.firstWhere(
+        (e) => e.name == (data['status'] ?? 'pending'),
+        orElse: () => OrderStatus.pending,
+      ),
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       notes: data['notes'],
-      hasRated: data['hasRated'] ?? false, // ✅ safely handle missing field
+      hasRated: data['hasRated'] ?? false,
     );
   }
 
@@ -51,10 +56,10 @@ class CafeOrder {
       'customerPhone': customerPhone,
       'items': items.map((e) => e.toMap()).toList(),
       'totalAmount': totalAmount,
-      'status': status,
+      'status': status.name, // Save as string
       'createdAt': Timestamp.fromDate(createdAt),
       'notes': notes,
-      'hasRated': hasRated, // ✅
+      'hasRated': hasRated,
     };
   }
 
@@ -65,10 +70,10 @@ class CafeOrder {
     String? customerPhone,
     List<OrderItem>? items,
     double? totalAmount,
-    String? status,
+    OrderStatus? status,
     DateTime? createdAt,
     String? notes,
-    bool? hasRated, // ✅
+    bool? hasRated,
   }) {
     return CafeOrder(
       id: id ?? this.id,
@@ -80,7 +85,7 @@ class CafeOrder {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       notes: notes ?? this.notes,
-      hasRated: hasRated ?? this.hasRated, // ✅
+      hasRated: hasRated ?? this.hasRated,
     );
   }
 }

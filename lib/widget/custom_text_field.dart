@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../theme/appColors.dart';
+import '../theme/app_colors.dart';
 
 class FloatingStyleTextField extends StatefulWidget {
   final TextEditingController controller;
@@ -34,7 +34,7 @@ class _FloatingStyleTextFieldState extends State<FloatingStyleTextField> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    // final theme = Theme.of(context);
 
     final border = OutlineInputBorder(
       borderRadius: BorderRadius.circular(16),
@@ -58,7 +58,10 @@ class _FloatingStyleTextFieldState extends State<FloatingStyleTextField> {
           ),
           filled: true,
           fillColor: AppColors.surface,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 20),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 18,
+            vertical: 20,
+          ),
           border: border,
           enabledBorder: border,
           focusedBorder: border.copyWith(
@@ -70,17 +73,18 @@ class _FloatingStyleTextFieldState extends State<FloatingStyleTextField> {
           focusedErrorBorder: border.copyWith(
             borderSide: const BorderSide(color: Colors.redAccent, width: 2),
           ),
-          suffixIcon: widget.obscureText
-              ? IconButton(
-            icon: Icon(
-              _obscure ? Icons.visibility_off : Icons.visibility,
-              color: AppColors.textSecondary,
-            ),
-            onPressed: () {
-              setState(() => _obscure = !_obscure);
-            },
-          )
-              : null,
+          suffixIcon:
+              widget.obscureText
+                  ? IconButton(
+                    icon: Icon(
+                      _obscure ? Icons.visibility_off : Icons.visibility,
+                      color: AppColors.textSecondary,
+                    ),
+                    onPressed: () {
+                      setState(() => _obscure = !_obscure);
+                    },
+                  )
+                  : null,
         ),
       ),
     );

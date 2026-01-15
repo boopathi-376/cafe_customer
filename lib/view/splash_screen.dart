@@ -23,8 +23,11 @@ class _SplashScreenState extends State<SplashScreen> {
 
     final user = FirebaseAuth.instance.currentUser;
 
+    if (!mounted) return;
+
     if (user != null) {
       await user.reload(); // Ensure we have latest emailVerified status
+      if (!mounted) return;
       if (user.emailVerified) {
         Navigator.pushReplacement(
           context,
@@ -33,6 +36,8 @@ class _SplashScreenState extends State<SplashScreen> {
         return;
       }
     }
+
+    if (!mounted) return;
 
     Navigator.pushReplacement(
       context,

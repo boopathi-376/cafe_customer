@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../models/ratingModel.dart';
-import '../service/ratingService.dart';
+import '../models/rating_model.dart';
+import '../service/rating_service.dart';
 
 class RatingProvider extends ChangeNotifier {
   double _rating = 0;

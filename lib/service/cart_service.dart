@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/cartItem.dart';
+import 'package:flutter/foundation.dart';
+import '../models/cart_item.dart';
 
 class CartService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -37,7 +38,7 @@ class CartService {
     try {
       await _firestore.collection('carts').doc(uid).delete();
     } catch (e) {
-      print('❌ Error clearing cart: $e');
+      debugPrint('❌ Error clearing cart: $e');
     }
   }
 }

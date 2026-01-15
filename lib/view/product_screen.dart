@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../models/menu_items.dart';
-import '../../models/cartItem.dart';
+import '../../models/cart_item.dart';
 import '../../provider/cart_provider.dart';
 import '../../provider/auth_provider.dart';
 import '../../service/cart_service.dart';
@@ -132,7 +132,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
                     // Add to Cart Button
                     ElevatedButton.icon(
-                      icon: Icon(Icons.add_shopping_cart, color: theme.colorScheme.onPrimary,),
+                      icon: Icon(
+                        Icons.add_shopping_cart,
+                        color: theme.colorScheme.onPrimary,
+                      ),
                       label: const Text("Add to cart"),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: theme.colorScheme.primary,
@@ -154,7 +157,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             cartProvider.items
                                 .map(
                                   (entry) => CartItem(
-                                    menuId:  entry.menuItem.menuId?? '',
+                                    menuId: entry.menuItem.menuId ?? '',
                                     name: entry.menuItem.name,
                                     imageUrl: entry.menuItem.imageUrl,
                                     price: entry.menuItem.price,
@@ -203,24 +206,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 12),
                       child: Row(
-                        children: similarItems.map((menuItem) {
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 12),
-                            child: SizedBox(
-                              width: 150,
-                              child: CustomerMenuCard(
-                                item: menuItem,
-                                showDescription: false,
-                              ),
-                            ),
-                          );
-                        }).toList(),
+                        children:
+                            similarItems.map((menuItem) {
+                              return Padding(
+                                padding: const EdgeInsets.only(right: 12),
+                                child: SizedBox(
+                                  width: 150,
+                                  child: CustomerMenuCard(
+                                    item: menuItem,
+                                    showDescription: false,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
                       ),
                     ),
                   );
                 },
               ),
-
             ],
           ),
         ),

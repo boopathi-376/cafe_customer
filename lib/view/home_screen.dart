@@ -1,15 +1,15 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../models/menu_items.dart';
 import '../components/customer_menu_card.dart';
 import '../helper/date_helpers.dart';
-import '../models/CategoryModel.dart';
+import '../models/category_model.dart';
+import '../models/menu_items.dart';
 import '../provider/auth_provider.dart';
 import '../provider/user_provider.dart';
-import '../widget/categoryChips.dart';
-import 'notification_screen/CustomerNotificationScreen.dart';
+import '../provider/menu_provider.dart';
+import '../widget/category_chips.dart';
+import 'notification_screen/customer_notification_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -26,12 +26,18 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authProvider = Provider.of<AuthenticationProvider>(context, listen: false);
+      final authProvider = Provider.of<AuthenticationProvider>(
+        context,
+        listen: false,
+      );
       final userProvider = Provider.of<UserProvider>(context, listen: false);
+      final menuProvider = Provider.of<MenuProvider>(context, listen: false);
+
       final uid = authProvider.user?.uid;
       if (uid != null) {
         userProvider.loadUser(uid);
       }
+      menuProvider.fetchMenuItems();
     });
   }
 
@@ -55,7 +61,9 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 10),
               Text(
                 "${getGreetingMessage()}, ${user?.name ?? ''}",
-                style: textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w600),
+                style: textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               Text(
                 "What would you like today?",
@@ -83,7 +91,7 @@ class _HomeScreenState extends State<HomeScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(
-          "Café Bistro",
+          "Happy Mug",
           style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
         ),
         Stack(
@@ -97,7 +105,9 @@ class _HomeScreenState extends State<HomeScreen> {
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => CustomerNotificationScreen()),
+                  MaterialPageRoute(
+                    builder: (context) => CustomerNotificationScreen(),
+                  ),
                 );
               },
             ),
@@ -139,7 +149,10 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           filled: true,
           fillColor: colorScheme.surface,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 0,
+          ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(24),
             borderSide: BorderSide.none,
@@ -162,25 +175,28 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMenuItems(ThemeData theme, double width) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance.collection('menuItems').snapshots(),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
+    return Consumer<MenuProvider>(
+      builder: (context, provider, child) {
+        if (provider.isLoading) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        List<MenuItem> items = snapshot.data!.docs.map((doc) {
-          return MenuItem.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-        }).toList();
+        List<MenuItem> items = provider.menuItems;
 
         if (selectedCategory != 'All') {
-          items = items.where((item) => item.category == selectedCategory).toList();
+          items =
+              items.where((item) => item.category == selectedCategory).toList();
         }
 
         if (searchController.text.isNotEmpty) {
-          items = items.where((item) => item.name
-              .toLowerCase()
-              .contains(searchController.text.toLowerCase())).toList();
+          items =
+              items
+                  .where(
+                    (item) => item.name.toLowerCase().contains(
+                      searchController.text.toLowerCase(),
+                    ),
+                  )
+                  .toList();
         }
 
         if (items.isEmpty) {

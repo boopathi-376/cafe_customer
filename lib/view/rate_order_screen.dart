@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../provider/ratingProvider.dart';
-import '../service/ratingService.dart';
+import '../provider/rating_provider.dart';
+import '../service/rating_service.dart';
 import '../widget/ratingWidget.dart';
-
-
 
 class RateOrderScreen extends StatelessWidget {
   final String orderId;
@@ -28,13 +26,14 @@ class RateOrderScreen extends StatelessWidget {
       body: FutureBuilder<bool>(
         future: RatingService().hasRated(orderId, menuItemId),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+          if (!snapshot.hasData)
+            return const Center(child: CircularProgressIndicator());
 
           if (snapshot.data == true) {
             return const Center(child: Text("You already rated this order."));
           }
 
-          return Padding(
+          return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
@@ -53,25 +52,31 @@ class RateOrderScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: ratingProvider.isSubmitting
-                      ? null
-                      : () async {
-                    await ratingProvider.submitRating(
-                      orderId: orderId,
-                      userId: userId,
-                      menuItemId: menuItemId,
-                    );
+                  onPressed:
+                      ratingProvider.isSubmitting
+                          ? null
+                          : () async {
+                            await ratingProvider.submitRating(
+                              orderId: orderId,
+                              userId: userId,
+                              menuItemId: menuItemId,
+                            );
 
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Thank you for rating!")),
-                    );
+                            if (!context.mounted) return;
 
-                    Navigator.pop(context);
-                  },
-                  child: ratingProvider.isSubmitting
-                      ? const CircularProgressIndicator()
-                      : const Text("Submit"),
-                )
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Thank you for rating!"),
+                              ),
+                            );
+
+                            Navigator.pop(context);
+                          },
+                  child:
+                      ratingProvider.isSubmitting
+                          ? const CircularProgressIndicator()
+                          : const Text("Submit"),
+                ),
               ],
             ),
           );

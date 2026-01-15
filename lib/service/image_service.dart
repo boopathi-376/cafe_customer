@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:cloud_firestore/cloud_firestore.dart';
 
@@ -8,11 +9,16 @@ class ImageService {
   final String uploadPreset = 'Cafe Images';
 
   Future<String?> uploadImageToCloudinary(File imageFile) async {
-    final url = Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload');
+    final url = Uri.parse(
+      'https://api.cloudinary.com/v1_1/$cloudName/image/upload',
+    );
 
-    final request = http.MultipartRequest('POST', url)
-      ..fields['upload_preset'] = uploadPreset
-      ..files.add(await http.MultipartFile.fromPath('file', imageFile.path));
+    final request =
+        http.MultipartRequest('POST', url)
+          ..fields['upload_preset'] = uploadPreset
+          ..files.add(
+            await http.MultipartFile.fromPath('file', imageFile.path),
+          );
 
     final response = await request.send();
     final res = await http.Response.fromStream(response);
@@ -39,7 +45,7 @@ class ImageService {
       await saveImageUrlToFirestore(imageUrl);
       print('Image uploaded and URL saved to Firestore.');
     } else {
-      print('Failed to upload image.');
+      debugPrint('Failed to upload image.');
     }
   }
 }

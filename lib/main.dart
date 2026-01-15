@@ -1,7 +1,7 @@
-import 'package:cafe/provider/ratingProvider.dart';
+import 'package:cafe/provider/rating_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_dynamic_links/firebase_dynamic_links.dart';
+// import 'package:firebase_dynamic_links/firebase_dynamic_links.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
@@ -16,9 +16,7 @@ import 'package:cafe/view/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(MyApp());
 }
 
@@ -35,34 +33,15 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    _handleDynamicLinks();
+    // _handleDynamicLinks(); // Removed deprecated dynamic links
   }
 
+  /*
   void _handleDynamicLinks() async {
-    // Handle background or foreground links
-    FirebaseDynamicLinks.instance.onLink.listen((dynamicLinkData) {
-      final Uri deepLink = dynamicLinkData.link;
-      if (deepLink.path.contains('/emailVerify')) {
-        Future.delayed(Duration.zero, () {
-          _navigatorKey.currentState?.push(
-            MaterialPageRoute(builder: (_) => VerifiedScreen()),
-          );
-        });
-      }
-    });
-
-    // Handle terminated state
-    final PendingDynamicLinkData? initialLink =
-    await FirebaseDynamicLinks.instance.getInitialLink();
-    final Uri? deepLink = initialLink?.link;
-    if (deepLink != null && deepLink.path.contains('/emailVerify')) {
-      Future.delayed(Duration.zero, () {
-        _navigatorKey.currentState?.push(
-          MaterialPageRoute(builder: (_) => VerifiedScreen()),
-        );
-      });
-    }
+     // Dynamic Links logic removed as the package is deprecated.
+     // Migrate to App Links / Universal Links.
   }
+  */
 
   @override
   Widget build(BuildContext context) {
@@ -74,11 +53,10 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => OrderProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
         ChangeNotifierProvider(create: (_) => RatingProvider()),
-
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'Customer Café',
+        title: 'Happy Mug',
         theme: AppTheme.darkTheme,
         home: const SplashScreen(),
         navigatorKey: _navigatorKey, // 🔑 For pushing navigation from initState

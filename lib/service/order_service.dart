@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/order.dart';
+import '../models/enums.dart';
 
 class OrderService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -17,8 +18,10 @@ class OrderService {
         .where('uid', isEqualTo: uid)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snapshot) =>
-        snapshot.docs.map((doc) => CafeOrder.fromFirestore(doc)).toList());
+        .map(
+          (snapshot) =>
+              snapshot.docs.map((doc) => CafeOrder.fromFirestore(doc)).toList(),
+        );
   }
 
   /// Stream a single order by ID
@@ -31,7 +34,20 @@ class OrderService {
   }
 
   /// Update order status (admin use)
-  Future<void> updateOrderStatus(String orderId, String status, {String? reason}) async {
-    await _firestore.collection('orders').doc(orderId).update({'status': status});
+  Future<void> updateOrderStatus(
+    String orderId,
+    OrderStatus status, {
+    String? reason,
+  }) async {
+    final Map<String, dynamic> data = {'status': status.name};
+    if (reason != null) {
+      data['cancellationReason'] = reason;
+    }
+    await _firestore.collection('orders').doc(orderId).update(data);
+  }
+
+  /// Cancel an order (customer use)
+  Future<void> cancelOrder(String orderId, String reason) async {
+    await updateOrderStatus(orderId, OrderStatus.cancelled, reason: reason);
   }
 }
