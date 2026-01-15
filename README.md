@@ -36,56 +36,56 @@ Cloud Firestore
 
 Material UI
 
-📁 Project Structure
+## 📁 Project Structure
 
 cafe_customer/
-├── android/                # Android native project files
-├── ios/                    # iOS native project files
-├── assets/                 # Images, icons, and animations
+├── android/ # Android native project files
+├── ios/ # iOS native project files
+├── assets/ # Images, icons, and animations
 ├── lib/
-│   ├── components/         # Reusable UI blocks (cards, tiles)
-│   ├── helper/             # Helper utilities
-│   ├── models/             # Data models
-│   │   ├── cart_item.dart
-│   │   ├── category_model.dart
-│   │   ├── enums.dart
-│   │   ├── menu_items.dart
-│   │   ├── order.dart
-│   │   ├── rating_model.dart
-│   │   └── user.dart
-│   ├── provider/           # State Management (Provider pattern)
-│   │   ├── auth_provider.dart
-│   │   ├── cart_provider.dart
-│   │   ├── menu_provider.dart
-│   │   ├── order_provider.dart
-│   │   ├── rating_provider.dart
-│   │   └── user_provider.dart
-│   ├── service/            # Business logic & Firebase interactions
-│   │   ├── auth_service.dart
-│   │   ├── cart_service.dart
-│   │   ├── menu_service.dart
-│   │   ├── order_service.dart
-│   │   ├── rating_service.dart
-│   │   └── user_service.dart
-│   ├── theme/              # App themes & colors
-│   ├── view/               # UI Screens
-│   │   ├── auth_screen/
-│   │   ├── notification_screen/
-│   │   ├── order_update_screen/
-│   │   ├── cart_screen.dart
-│   │   ├── checkout_screen.dart
-│   │   ├── customer_menu.dart
-│   │   ├── home_screen.dart
-│   │   ├── product_screen.dart
-│   │   ├── profile_screen.dart
-│   │   ├── rate_order_screen.dart
-│   │   ├── splash_screen.dart
-│   │   └── view_orders_screen.dart
-│   ├── widget/             # Small reusable widgets
-│   ├── firebase_options.dart
-│   └── main.dart           # Application entry point
-├── pubspec.yaml            # Dependencies
-└── README.md               # Documentation
+│ ├── components/ # Reusable UI blocks (cards, tiles)
+│ ├── helper/ # Helper utilities
+│ ├── models/ # Data models
+│ │ ├── cart_item.dart
+│ │ ├── category_model.dart
+│ │ ├── enums.dart
+│ │ ├── menu_items.dart
+│ │ ├── order.dart
+│ │ ├── rating_model.dart
+│ │ └── user.dart
+│ ├── provider/ # State Management (Provider pattern)
+│ │ ├── auth_provider.dart
+│ │ ├── cart_provider.dart
+│ │ ├── menu_provider.dart
+│ │ ├── order_provider.dart
+│ │ ├── rating_provider.dart
+│ │ └── user_provider.dart
+│ ├── service/ # Business logic & Firebase interactions
+│ │ ├── auth_service.dart
+│ │ ├── cart_service.dart
+│ │ ├── menu_service.dart
+│ │ ├── order_service.dart
+│ │ ├── rating_service.dart
+│ │ └── user_service.dart
+│ ├── theme/ # App themes & colors
+│ ├── view/ # UI Screens
+│ │ ├── auth_screen/
+│ │ ├── notification_screen/
+│ │ ├── order_update_screen/
+│ │ ├── cart_screen.dart
+│ │ ├── checkout_screen.dart
+│ │ ├── customer_menu.dart
+│ │ ├── home_screen.dart
+│ │ ├── product_screen.dart
+│ │ ├── profile_screen.dart
+│ │ ├── rate_order_screen.dart
+│ │ ├── splash_screen.dart
+│ │ └── view_orders_screen.dart
+│ ├── widget/ # Small reusable widgets
+│ ├── firebase_options.dart
+│ └── main.dart # Application entry point
+├── pubspec.yaml # Dependencies
+└── README.md # Documentation
 
 
 📌 Key Directories Explained
