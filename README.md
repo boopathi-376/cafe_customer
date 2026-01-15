@@ -37,6 +37,7 @@ Cloud Firestore
 Material UI
 
 📁 Project Structure
+
 cafe_customer/
 ├── android/                # Android native project files
 ├── ios/                    # iOS native project files
@@ -85,6 +86,7 @@ cafe_customer/
 │   └── main.dart           # Application entry point
 ├── pubspec.yaml            # Dependencies
 └── README.md               # Documentation
+
 
 📌 Key Directories Explained
 lib/view
