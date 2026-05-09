@@ -5,6 +5,7 @@ import '../../provider/auth_provider.dart';
 import '../../widget/custom_text_field.dart';
 import '../../widget/modern_button.dart';
 import '../splash_screen.dart';
+import 'forgot_password_screen.dart';
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -111,9 +112,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: () {
-                            // TODO: implement forgot password
-                          },
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  const ForgotPasswordScreen(),
+                            ),
+                          ),
                           child: Text(
                             'Forgot Password?',
                             style: theme.textTheme.bodyMedium?.copyWith(

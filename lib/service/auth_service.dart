@@ -127,6 +127,16 @@ class AuthenticationService {
     await _auth.signOut();
   }
 
+  Future<void> resetPassword(String email) async {
+    try {
+      await _auth.sendPasswordResetEmail(email: email.trim());
+    } on FirebaseAuthException catch (e) {
+      throw AppException.fromFirebaseAuth(e);
+    } catch (_) {
+      throw const AppException('Failed to send reset email. Try again.');
+    }
+  }
+
   /// Stream that emits UserModel when auth state changes.
   /// Only emits a non-null value when email is verified.
   Stream<UserModel?> get userStream {

@@ -72,6 +72,20 @@ class AuthenticationProvider with ChangeNotifier {
 
   Future<bool> isEmailVerified() => _authService.isEmailVerified();
 
+  Future<void> resetPassword(String email) async {
+    _isLoading = true;
+    _error = null;
+    notifyListeners();
+    try {
+      await _authService.resetPassword(email);
+    } on AppException catch (e) {
+      _error = e.message;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> signOut() async {
     await _authService.signOut();
     _user = null;
