@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/order.dart';
-import '../provider/auth_provider.dart';
-import '../provider/user_provider.dart';
-import '../provider/cart_provider.dart';
-import '../service/cart_service.dart';
-import '../service/order_service.dart';
 import '../models/user.dart';
+import '../provider/auth_provider.dart';
+import '../provider/cart_provider.dart';
+import '../provider/order_provider.dart';
+import '../provider/user_provider.dart';
+import '../service/cart_service.dart';
 
 class CheckoutSummaryScreen extends StatefulWidget {
   final double totalAmount;
@@ -27,67 +26,67 @@ class CheckoutSummaryScreen extends StatefulWidget {
   });
 
   @override
-  State<CheckoutSummaryScreen> createState() => _CheckoutSummaryScreenState();
+  State<CheckoutSummaryScreen> createState() =>
+      _CheckoutSummaryScreenState();
 }
 
-class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
-  List<bool> _isSelected = [true, false]; // Delivery, Pickup
-  String _orderType = "Delivery";
-  String _selectedPaymentMethod = "Card";
-
+class _CheckoutSummaryScreenState
+    extends State<CheckoutSummaryScreen> {
+  List<bool> _isSelected = [true, false];
+  String _orderType = 'Delivery';
+  String _selectedPaymentMethod = 'Cash on Delivery';
   AddressModel? _selectedAddress;
   List<AddressModel> _addresses = [];
+  bool _isPlacingOrder = false;
 
   @override
   void initState() {
     super.initState();
-    final authProvider = Provider.of<AuthenticationProvider>(
-      context,
-      listen: false,
-    );
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-
-    final uid = authProvider.user?.uid;
+    final uid =
+        Provider.of<AuthenticationProvider>(context, listen: false)
+            .user
+            ?.uid;
     if (uid != null) {
-      userProvider.loadUser(uid).then((_) {
-        final user = userProvider.user;
-        final addrList = user?.addresses ?? [];
-
+      Provider.of<UserProvider>(context, listen: false)
+          .loadUser(uid)
+          .then((_) {
+        if (!mounted) return;
+        final user =
+            Provider.of<UserProvider>(context, listen: false).user;
+        final list = user?.addresses ?? [];
         setState(() {
-          _addresses = addrList;
-          _selectedAddress = addrList.firstWhere(
-            (a) => a.isCurrent,
-            orElse:
-                () =>
-                    addrList.isNotEmpty
-                        ? addrList.first
-                        : AddressModel(
-                          address: "No saved addresses",
-                          label: "",
-                        ),
-          );
+          _addresses = list;
+          _selectedAddress = list.isEmpty
+              ? null
+              : list.firstWhere((a) => a.isCurrent,
+                  orElse: () => list.first);
         });
       });
     }
   }
 
   Future<void> _placeOrder() async {
-    try {
-      final cartProvider = Provider.of<CartProvider>(context, listen: false);
-      final List<OrderItem> items =
-          widget.cartItems.map((item) {
-            return OrderItem(
-              menuItemId: item['menuItemId'] ?? '',
-              name: item['name'] ?? '',
-              quantity: item['quantity'] ?? 1,
-              price: (item['price'] ?? 0).toDouble(),
-            );
-          }).toList();
+    if (_isPlacingOrder) return;
+    setState(() => _isPlacingOrder = true);
 
-      final double finalAmount =
-          _orderType == "Delivery"
-              ? widget.totalAmount + 2
-              : widget.totalAmount;
+    try {
+      final orderProvider =
+          Provider.of<OrderProvider>(context, listen: false);
+      final cartProvider =
+          Provider.of<CartProvider>(context, listen: false);
+
+      final items = widget.cartItems
+          .map((m) => OrderItem(
+                menuItemId: m['menuItemId'] as String? ?? '',
+                name: m['name'] as String? ?? '',
+                quantity: m['quantity'] as int? ?? 1,
+                price: (m['price'] as num? ?? 0).toDouble(),
+              ))
+          .toList();
+
+      final finalAmount = _orderType == 'Delivery'
+          ? widget.totalAmount + 2
+          : widget.totalAmount;
 
       final order = CafeOrder(
         uid: widget.customeruid,
@@ -95,79 +94,64 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
         customerPhone: widget.customerPhone,
         items: items,
         totalAmount: finalAmount,
-        notes:
-            _orderType == "Delivery"
-                ? _selectedAddress?.address ?? "No address"
-                : "Pickup from café",
+        notes: _orderType == 'Delivery'
+            ? _selectedAddress?.address ?? 'No address'
+            : 'Pickup from café',
       );
 
-      final docRef = await OrderService().placeOrder(order);
-
-      await FirebaseFirestore.instance
-          .collection('orders')
-          .doc(docRef.id)
-          .update({'orderId': docRef.id});
+      final orderId = await orderProvider.placeOrder(order);
 
       cartProvider.clearCart();
       await CartService().clearCart(widget.customeruid);
 
-      if (!context.mounted) return;
+      if (!mounted) return;
 
-      showDialog(
+      await showDialog(
         context: context,
-        builder:
-            (_) => AlertDialog(
-              title: const Text("Order Placed 🎉"),
-              content: Text(
-                "Your order was placed successfully.\nOrder ID: ${docRef.id}",
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                    Navigator.popUntil(context, (route) => route.isFirst);
-                  },
-                  child: const Text("OK"),
-                ),
-              ],
+        barrierDismissible: false,
+        builder: (_) => AlertDialog(
+          title: const Text('Order Placed 🎉'),
+          content: Text(
+              'Your order was placed successfully.\nOrder ID: $orderId'),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                Navigator.popUntil(context, (r) => r.isFirst);
+              },
+              child: const Text('OK'),
             ),
+          ],
+        ),
       );
-    } catch (e) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error placing order: $e")));
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Failed to place order. Please try again.')),
+        );
       }
+    } finally {
+      if (mounted) setState(() => _isPlacingOrder = false);
     }
   }
 
-  Widget _summaryRow(
-    String label,
-    String value,
-    TextTheme textTheme, {
-    bool bold = false,
-    Color? color,
-  }) {
+  Widget _row(String label, String value, TextTheme tt,
+      {bool bold = false, Color? color}) {
+    final style = bold
+        ? tt.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold, color: color)
+        : tt.bodyMedium;
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text(
-          label,
-          style:
-              bold
-                  ? textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold)
-                  : textTheme.bodyMedium,
-        ),
-        Text(
-          value,
-          style:
-              bold
-                  ? textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: color,
-                  )
-                  : textTheme.bodyMedium,
-        ),
+        Text(label,
+            style: bold
+                ? tt.titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold)
+                : tt.bodyMedium),
+        Text(value, style: style),
       ],
     );
   }
@@ -175,114 +159,92 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
+    final cs = theme.colorScheme;
+    final tt = theme.textTheme;
+    final deliveryFee = _orderType == 'Delivery' ? 2.0 : 0.0;
+    final total = widget.totalAmount + deliveryFee;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: cs.surface,
       appBar: AppBar(
-        title: const Text("Checkout"),
+        title: const Text('Checkout'),
         centerTitle: true,
-        backgroundColor: colorScheme.primary,
+        backgroundColor: cs.primary,
+        foregroundColor: cs.onPrimary,
       ),
       body: Column(
-        // Main column structure
         children: [
           Expanded(
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text("Order Type", style: textTheme.titleMedium),
+                  Text('Order Type', style: tt.titleMedium),
                   const SizedBox(height: 10),
                   ToggleButtons(
                     isSelected: _isSelected,
-                    onPressed: (index) {
-                      setState(() {
-                        _isSelected = [index == 0, index == 1];
-                        _orderType = index == 0 ? "Delivery" : "Pickup";
-                      });
-                    },
+                    onPressed: (i) => setState(() {
+                      _isSelected = [i == 0, i == 1];
+                      _orderType = i == 0 ? 'Delivery' : 'Pickup';
+                    }),
                     borderRadius: BorderRadius.circular(10),
-                    selectedColor: colorScheme.onPrimary,
-                    fillColor: colorScheme.primary,
+                    selectedColor: cs.onPrimary,
+                    fillColor: cs.primary,
                     children: const [
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        child: Text("Delivery"),
-                      ),
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 20),
+                          child: Text('Delivery')),
                       Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 20),
-                        child: Text("Pickup"),
-                      ),
+                          padding:
+                              EdgeInsets.symmetric(horizontal: 20),
+                          child: Text('Pickup')),
                     ],
                   ),
                   const SizedBox(height: 24),
-
-                  if (_orderType == "Delivery") ...[
-                    Text("Delivery Address", style: textTheme.titleMedium),
+                  if (_orderType == 'Delivery') ...[
+                    Text('Delivery Address', style: tt.titleMedium),
                     const SizedBox(height: 12),
-                    DropdownButtonFormField<AddressModel>(
-                      value: _selectedAddress,
-                      icon: const Icon(Icons.arrow_drop_down),
-                      decoration: InputDecoration(
-                        filled: true,
-                        fillColor: colorScheme.surface,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
+                    if (_addresses.isEmpty)
+                      Text('No saved addresses. Add one in Profile.',
+                          style: tt.bodySmall
+                              ?.copyWith(color: cs.error))
+                    else
+                      DropdownButtonFormField<AddressModel>(
+                        value: _selectedAddress,
+                        decoration: InputDecoration(
+                          filled: true,
+                          fillColor: cs.surface,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
                         ),
+                        items: _addresses
+                            .map((a) => DropdownMenuItem(
+                                  value: a,
+                                  child: Text(
+                                      '${a.label} — ${a.address}',
+                                      overflow:
+                                          TextOverflow.ellipsis),
+                                ))
+                            .toList(),
+                        onChanged: (v) =>
+                            setState(() => _selectedAddress = v),
                       ),
-                      items:
-                          _addresses.map((address) {
-                            return DropdownMenuItem<AddressModel>(
-                              value: address,
-                              child: Text(
-                                "${address.label} - ${address.address}",
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            );
-                          }).toList(),
-                      onChanged: (value) {
-                        setState(() => _selectedAddress = value);
-                      },
-                    ),
                     const SizedBox(height: 24),
                   ],
-
-                  Text("Payment Method", style: textTheme.titleMedium),
-                  const SizedBox(height: 12),
-                  Column(
-                    children: [
-                      RadioListTile(
-                        value: 'Card',
-                        groupValue: _selectedPaymentMethod,
-                        title: const Text("Credit/Debit Card"),
-                        secondary: const Icon(Icons.credit_card),
-                        onChanged:
-                            (value) =>
-                                setState(() => _selectedPaymentMethod = value!),
-                      ),
-                      RadioListTile(
-                        value: 'UPI',
-                        groupValue: _selectedPaymentMethod,
-                        title: const Text("UPI"),
-                        secondary: const Icon(Icons.qr_code),
-                        onChanged:
-                            (value) =>
-                                setState(() => _selectedPaymentMethod = value!),
-                      ),
-                      RadioListTile(
-                        value: 'Cash on Delivery',
-                        groupValue: _selectedPaymentMethod,
-                        title: const Text("Cash on Delivery"),
-                        secondary: const Icon(Icons.money),
-                        onChanged:
-                            (value) =>
-                                setState(() => _selectedPaymentMethod = value!),
-                      ),
-                    ],
+                  Text('Payment Method', style: tt.titleMedium),
+                  const SizedBox(height: 8),
+                  ...['Cash on Delivery', 'UPI', 'Card'].map(
+                    (method) => RadioListTile<String>(
+                      value: method,
+                      groupValue: _selectedPaymentMethod,
+                      title: Text(method),
+                      onChanged: (v) => setState(
+                          () => _selectedPaymentMethod = v!),
+                    ),
                   ),
                 ],
               ),
@@ -291,60 +253,51 @@ class _CheckoutSummaryScreenState extends State<CheckoutSummaryScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color:
-                  colorScheme
-                      .surface, // Changed from surfaceContainerHighest to match style
+              color: cs.surface,
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ), // Only top radius for bottom sheet feel
-              boxShadow: [
+                  top: Radius.circular(16)),
+              boxShadow: const [
                 BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 10,
-                  offset: Offset(0, -5),
-                ),
+                    color: Colors.black12,
+                    blurRadius: 10,
+                    offset: Offset(0, -5))
               ],
             ),
             child: Column(
               children: [
-                _summaryRow(
-                  "Items Total",
-                  "₹${widget.totalAmount.toStringAsFixed(2)}",
-                  textTheme,
-                ),
+                _row('Items Total',
+                    '₹${widget.totalAmount.toStringAsFixed(2)}', tt),
                 const SizedBox(height: 8),
-                _summaryRow(
-                  "Delivery",
-                  _orderType == "Delivery" ? "₹2.00" : "₹0.00",
-                  textTheme,
-                ),
+                _row('Delivery Fee',
+                    '₹${deliveryFee.toStringAsFixed(2)}', tt),
                 const Divider(height: 24),
-                _summaryRow(
-                  "Total",
-                  "₹${_orderType == "Delivery" ? (widget.totalAmount + 2).toStringAsFixed(2) : widget.totalAmount.toStringAsFixed(2)}",
-                  textTheme,
-                  bold: true,
-                  color: colorScheme.primary,
-                ),
+                _row('Total', '₹${total.toStringAsFixed(2)}', tt,
+                    bold: true, color: cs.primary),
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: _placeOrder,
+                    onPressed:
+                        _isPlacingOrder ? null : _placeOrder,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: colorScheme.primary,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      backgroundColor: cs.primary,
+                      padding:
+                          const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+                          borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: Text(
-                      "Place Order",
-                      style: textTheme.labelLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: colorScheme.onPrimary,
-                      ),
-                    ),
+                    child: _isPlacingOrder
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white),
+                          )
+                        : Text('Place Order',
+                            style: tt.labelLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: cs.onPrimary)),
                   ),
                 ),
               ],

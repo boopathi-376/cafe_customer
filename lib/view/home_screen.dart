@@ -1,15 +1,16 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../components/customer_menu_card.dart';
-import '../helper/date_helpers.dart';
-import '../models/category_model.dart';
-import '../models/menu_items.dart';
-import '../provider/auth_provider.dart';
-import '../provider/user_provider.dart';
-import '../provider/menu_provider.dart';
-import '../widget/category_chips.dart';
-import 'notification_screen/customer_notification_screen.dart';
+import 'package:cafe/components/customer_menu_card.dart';
+import 'package:cafe/helper/date_helpers.dart';
+import 'package:cafe/models/category_model.dart';
+import 'package:cafe/models/menu_items.dart';
+import 'package:cafe/provider/auth_provider.dart';
+import 'package:cafe/provider/menu_provider.dart';
+import 'package:cafe/provider/user_provider.dart';
+import 'package:cafe/widget/category_chips.dart';
+import 'package:cafe/view/notification_screen/customer_notification_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,216 +20,220 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String selectedCategory = 'All';
-  final TextEditingController searchController = TextEditingController();
+  String _selectedCategory = 'All';
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final authProvider = Provider.of<AuthenticationProvider>(
-        context,
-        listen: false,
-      );
-      final userProvider = Provider.of<UserProvider>(context, listen: false);
-      final menuProvider = Provider.of<MenuProvider>(context, listen: false);
-
-      final uid = authProvider.user?.uid;
+      final auth =
+          Provider.of<AuthenticationProvider>(context, listen: false);
+      final uid = auth.user?.uid;
       if (uid != null) {
-        userProvider.loadUser(uid);
+        Provider.of<UserProvider>(context, listen: false).loadUser(uid);
       }
-      menuProvider.fetchMenuItems();
+      Provider.of<MenuProvider>(context, listen: false).fetchMenuItems();
     });
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged(String value) {
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 300), () {
+      if (mounted) setState(() => _searchQuery = value.trim());
+    });
+  }
+
+  List<MenuItem> _filtered(List<MenuItem> all) {
+    var items = all;
+    if (_selectedCategory != 'All') {
+      items = items.where((i) => i.category == _selectedCategory).toList();
+    }
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      items = items.where((i) => i.name.toLowerCase().contains(q)).toList();
+    }
+    return items;
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
-    final user = Provider.of<UserProvider>(context).user;
-    final width = MediaQuery.of(context).size.width;
+    final cs = theme.colorScheme;
+    final tt = theme.textTheme;
 
-    return SafeArea(
-      child: Scaffold(
-        backgroundColor: theme.scaffoldBackgroundColor,
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildTopBar(colorScheme, textTheme),
-              const SizedBox(height: 10),
-              Text(
-                "${getGreetingMessage()}, ${user?.name ?? ''}",
-                style: textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
+    // No Scaffold here — MainScreen already provides it.
+    // Consumer is at the top level so it is always inside MultiProvider.
+    return Consumer<MenuProvider>(
+      builder: (context, menuProvider, _) {
+        final items = _filtered(menuProvider.menuItems);
+
+        return CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 48, 16, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _TopBar(cs: cs, tt: tt),
+                    const SizedBox(height: 10),
+                    Selector<UserProvider, String>(
+                      selector: (_, p) => p.user?.name ?? '',
+                      builder: (_, name, __) => Text(
+                        '${getGreetingMessage()}, $name',
+                        style: tt.headlineSmall
+                            ?.copyWith(fontWeight: FontWeight.w600),
+                      ),
+                    ),
+                    Text(
+                      'What would you like today?',
+                      style: tt.bodyMedium?.copyWith(
+                          color: cs.onSurface.withValues(alpha: 0.7)),
+                    ),
+                    const SizedBox(height: 16),
+                    _SearchBar(
+                      controller: _searchController,
+                      onChanged: _onSearchChanged,
+                      cs: cs,
+                      tt: tt,
+                    ),
+                    const SizedBox(height: 12),
+                    CategoryChips(
+                      categories: cafeCategories,
+                      selected: _selectedCategory,
+                      onSelected: (c) =>
+                          setState(() => _selectedCategory = c),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
                 ),
               ),
-              Text(
-                "What would you like today?",
-                style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurface.withOpacity(0.7),
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildSearchBar(theme),
-              const SizedBox(height: 12),
-              _buildCategoryFilters(theme),
-              const SizedBox(height: 16),
-              _buildMenuItems(theme, width),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildTopBar(ColorScheme colorScheme, TextTheme textTheme) {
-    bool hasNotification = true;
-
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          "Happy Mug",
-          style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-        ),
-        Stack(
-          children: [
-            IconButton(
-              icon: Icon(
-                Icons.notifications_none,
-                size: 24,
-                color: colorScheme.onSurface,
-              ),
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => CustomerNotificationScreen(),
-                  ),
-                );
-              },
             ),
-            if (hasNotification)
-              Positioned(
-                right: 10,
-                top: 10,
-                child: Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
+            if (menuProvider.isLoading)
+              const SliverFillRemaining(
+                child: Center(child: CircularProgressIndicator()),
+              )
+            else if (menuProvider.error != null)
+              SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(menuProvider.error!, style: tt.bodyMedium),
+                      const SizedBox(height: 12),
+                      ElevatedButton(
+                        onPressed: menuProvider.fetchMenuItems,
+                        child: const Text('Retry'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            else if (items.isEmpty)
+              SliverFillRemaining(
+                child: Center(
+                  child: Text(
+                    'No items found',
+                    style: tt.bodyMedium?.copyWith(
+                        color: cs.onSurface.withValues(alpha: 0.6)),
+                  ),
+                ),
+              )
+            else
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                sliver: SliverGrid(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) =>
+                        CustomerMenuCard(item: items[index]),
+                    childCount: items.length,
+                  ),
+                  gridDelegate:
+                      const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    mainAxisSpacing: 16,
+                    crossAxisSpacing: 16,
+                    childAspectRatio: 0.70,
                   ),
                 ),
               ),
           ],
+        );
+      },
+    );
+  }
+}
+
+class _TopBar extends StatelessWidget {
+  final ColorScheme cs;
+  final TextTheme tt;
+  const _TopBar({required this.cs, required this.tt});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text('Happy Mug',
+            style: tt.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+        IconButton(
+          icon: Icon(Icons.notifications_none, size: 24, color: cs.onSurface),
+          onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => const CustomerNotificationScreen()),
+          ),
         ),
       ],
     );
   }
+}
 
-  Widget _buildSearchBar(ThemeData theme) {
-    final colorScheme = theme.colorScheme;
-    final textTheme = theme.textTheme;
+class _SearchBar extends StatelessWidget {
+  final TextEditingController controller;
+  final ValueChanged<String> onChanged;
+  final ColorScheme cs;
+  final TextTheme tt;
 
+  const _SearchBar({
+    required this.controller,
+    required this.onChanged,
+    required this.cs,
+    required this.tt,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Material(
       elevation: 4,
       borderRadius: BorderRadius.circular(24),
-      shadowColor: Colors.black.withOpacity(0.1),
+      shadowColor: Colors.black.withValues(alpha: 0.1),
       child: TextField(
-        controller: searchController,
-        onChanged: (_) => setState(() {}),
+        controller: controller,
+        onChanged: onChanged,
         decoration: InputDecoration(
-          prefixIcon: Icon(Icons.search, color: colorScheme.onSurfaceVariant),
+          prefixIcon: Icon(Icons.search, color: cs.onSurfaceVariant),
           hintText: 'Search for coffee, pastries...',
-          hintStyle: textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
+          hintStyle: tt.bodyMedium?.copyWith(color: cs.onSurfaceVariant),
           filled: true,
-          fillColor: colorScheme.surface,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 0,
-          ),
+          fillColor: cs.surface,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(24),
             borderSide: BorderSide.none,
           ),
         ),
       ),
-    );
-  }
-
-  Widget _buildCategoryFilters(ThemeData theme) {
-    return CategoryChips(
-      categories: cafeCategories,
-      selected: selectedCategory,
-      onSelected: (category) {
-        setState(() {
-          selectedCategory = category;
-        });
-      },
-    );
-  }
-
-  Widget _buildMenuItems(ThemeData theme, double width) {
-    return Consumer<MenuProvider>(
-      builder: (context, provider, child) {
-        if (provider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        List<MenuItem> items = provider.menuItems;
-
-        if (selectedCategory != 'All') {
-          items =
-              items.where((item) => item.category == selectedCategory).toList();
-        }
-
-        if (searchController.text.isNotEmpty) {
-          items =
-              items
-                  .where(
-                    (item) => item.name.toLowerCase().contains(
-                      searchController.text.toLowerCase(),
-                    ),
-                  )
-                  .toList();
-        }
-
-        if (items.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Center(
-              child: Text(
-                "No items found",
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurface.withOpacity(0.6),
-                ),
-              ),
-            ),
-          );
-        }
-
-        return GridView.builder(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: items.length,
-          padding: const EdgeInsets.only(bottom: 16),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: 2,
-            mainAxisSpacing: width * 0.04,
-            crossAxisSpacing: width * 0.04,
-            childAspectRatio: 0.70,
-          ),
-          itemBuilder: (context, index) {
-            return CustomerMenuCard(item: items[index]);
-          },
-        );
-      },
     );
   }
 }

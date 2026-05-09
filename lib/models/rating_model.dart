@@ -17,25 +17,21 @@ class RatingModel {
     required this.timestamp,
   });
 
-  Map<String, dynamic> toMap() {
-    return {
-      'orderId': orderId,
-      'userId': userId,
-      'menuItemId': menuItemId,
-      'rating': rating,
-      'comment': comment,
-      'timestamp': timestamp,
-    };
-  }
+  Map<String, dynamic> toMap() => {
+        'orderId': orderId,
+        'userId': userId,
+        'menuItemId': menuItemId,
+        'rating': rating,
+        'comment': comment,
+        'timestamp': Timestamp.fromDate(timestamp),
+      };
 
-  factory RatingModel.fromMap(Map<String, dynamic> map) {
-    return RatingModel(
-      orderId: map['orderId'],
-      userId: map['userId'],
-      menuItemId: map['menuItemId'],
-      rating: map['rating'],
-      comment: map['comment'],
-      timestamp: (map['timestamp'] as Timestamp).toDate(),
-    );
-  }
+  factory RatingModel.fromMap(Map<String, dynamic> map) => RatingModel(
+        orderId: map['orderId'] as String,
+        userId: map['userId'] as String,
+        menuItemId: map['menuItemId'] as String,
+        rating: (map['rating'] as num).toDouble(),
+        comment: map['comment'] as String?,
+        timestamp: (map['timestamp'] as Timestamp).toDate(),
+      );
 }

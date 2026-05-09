@@ -1,53 +1,55 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/order.dart';
 import '../models/enums.dart';
+import '../core/constants/firestore_paths.dart';
 
 class OrderService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  /// Place a new order and return the DocumentReference
-  Future<DocumentReference> placeOrder(CafeOrder order) async {
-    final docRef = await _firestore.collection('orders').add(order.toMap());
-    return docRef;
+  /// Place a new order. Writes orderId into the document atomically.
+  Future<String> placeOrder(CafeOrder order) async {
+    final docRef =
+        _firestore.collection(FirestorePaths.orders).doc();
+    final data = order.toMap();
+    data['orderId'] = docRef.id;
+    await docRef.set(data);
+    return docRef.id;
   }
 
-  /// Stream all orders for a given customer UID
+  /// Real-time stream of all orders for a customer.
   Stream<List<CafeOrder>> getUserOrders(String uid) {
     return _firestore
-        .collection('orders')
+        .collection(FirestorePaths.orders)
         .where('uid', isEqualTo: uid)
         .orderBy('createdAt', descending: true)
         .snapshots()
-        .map(
-          (snapshot) =>
-              snapshot.docs.map((doc) => CafeOrder.fromFirestore(doc)).toList(),
-        );
+        .map((snap) =>
+            snap.docs.map((d) => CafeOrder.fromFirestore(d)).toList());
   }
 
-  /// Stream a single order by ID
+  /// Real-time stream of a single order — used by tracking screen.
   Stream<CafeOrder> getOrderById(String orderId) {
     return _firestore
-        .collection('orders')
+        .collection(FirestorePaths.orders)
         .doc(orderId)
         .snapshots()
         .map((doc) => CafeOrder.fromFirestore(doc));
   }
 
-  /// Update order status (admin use)
-  Future<void> updateOrderStatus(
-    String orderId,
-    OrderStatus status, {
-    String? reason,
-  }) async {
-    final Map<String, dynamic> data = {'status': status.name};
-    if (reason != null) {
-      data['cancellationReason'] = reason;
-    }
-    await _firestore.collection('orders').doc(orderId).update(data);
+  Future<void> cancelOrder(String orderId, String reason) async {
+    await _firestore
+        .collection(FirestorePaths.orders)
+        .doc(orderId)
+        .update({
+      'status': OrderStatus.cancelled.name,
+      'cancellationReason': reason,
+    });
   }
 
-  /// Cancel an order (customer use)
-  Future<void> cancelOrder(String orderId, String reason) async {
-    await updateOrderStatus(orderId, OrderStatus.cancelled, reason: reason);
+  Future<void> markAsRated(String orderId) async {
+    await _firestore
+        .collection(FirestorePaths.orders)
+        .doc(orderId)
+        .update({'hasRated': true});
   }
 }

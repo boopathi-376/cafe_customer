@@ -43,3 +43,19 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ── Security: NEVER commit these ──────────────────────────
+# Firebase config files contain live API keys
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+lib/firebase_options.dart
+
+# Android release signing
+android/app/keystore/
+*.jks
+*.keystore
+key.properties
+
+# Environment / secrets
+.env
+.env.*

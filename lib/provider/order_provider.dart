@@ -9,61 +9,55 @@ class OrderProvider with ChangeNotifier {
   List<CafeOrder> _orders = [];
   bool _isLoading = false;
   String? _error;
-  StreamSubscription<List<CafeOrder>>? _ordersSubscription;
+  StreamSubscription<List<CafeOrder>>? _subscription;
 
-  List<CafeOrder> get orders => _orders;
+  List<CafeOrder> get orders => List.unmodifiable(_orders);
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  /// Listen to orders stream for real-time updates
-  void listenToOrders(String customerUid) {
+  void listenToOrders(String uid) {
     _isLoading = true;
     _error = null;
     notifyListeners();
 
-    _ordersSubscription?.cancel();
-    _ordersSubscription = _orderService
-        .getUserOrders(customerUid)
-        .listen(
-          (orders) {
-            _orders = orders;
-            _isLoading = false;
-            notifyListeners();
-          },
-          onError: (e) {
-            _error = e.toString();
-            _isLoading = false;
-            notifyListeners();
-          },
-        );
+    _subscription?.cancel();
+    _subscription = _orderService.getUserOrders(uid).listen(
+      (orders) {
+        _orders = orders;
+        _isLoading = false;
+        notifyListeners();
+      },
+      onError: (e) {
+        _error = 'Failed to load orders.';
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
   }
 
-  /// Place an order
-  Future<void> placeOrder(CafeOrder order) async {
+  /// Returns the new order ID.
+  Future<String> placeOrder(CafeOrder order) async {
     try {
-      await _orderService.placeOrder(order);
-      // No need to re-fetch manually if listening to stream
+      return await _orderService.placeOrder(order);
     } catch (e) {
-      _error = e.toString();
+      _error = 'Failed to place order. Please try again.';
       notifyListeners();
       rethrow;
     }
   }
 
-  /// Cancel order
   Future<void> cancelOrder(String orderId, String reason) async {
     try {
       await _orderService.cancelOrder(orderId, reason);
     } catch (e) {
-      _error = e.toString();
+      _error = 'Failed to cancel order.';
       notifyListeners();
       rethrow;
     }
   }
 
-  /// Clear all order data (optional for logout or reset)
   void clearOrders() {
-    _ordersSubscription?.cancel();
+    _subscription?.cancel();
     _orders = [];
     _error = null;
     notifyListeners();
@@ -71,7 +65,7 @@ class OrderProvider with ChangeNotifier {
 
   @override
   void dispose() {
-    _ordersSubscription?.cancel();
+    _subscription?.cancel();
     super.dispose();
   }
 }

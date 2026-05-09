@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can only read/write their own profile
+    match /customeruser/{uid} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == uid;
+    }
+
+    // Orders: customer reads their own, creates their own.
+    // Updates (status changes) are admin-only via backend/Cloud Functions.
+    match /orders/{orderId} {
+      allow read: if request.auth != null
+                  && resource.data.uid == request.auth.uid;
+
+      allow create: if request.auth != null
+                    && request.resource.data.uid == request.auth.uid
+                    && request.resource.data.keys().hasAll([
+                         'uid', 'customerName', 'items',
+                         'totalAmount', 'status', 'createdAt'
+                       ]);
+
+      allow update, delete: if false;
+    }
+
+    // Menu: authenticated read only, no client writes
+    match /menuItems/{id} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Cart: each user owns only their own cart document
+    match /carts/{uid} {
+      allow read, write: if request.auth != null
+                         && request.auth.uid == uid;
+    }
+
+    // Ratings: authenticated users can create once per order+item.
+    // No updates or deletes allowed.
+    match /ratings/{id} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
+    }
+  }
+}

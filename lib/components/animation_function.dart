@@ -7,12 +7,11 @@ class LoginAnimationHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-
     return SizedBox(
-      width: screenWidth * 0.9, 
+      width: screenWidth * 0.9,
       height: screenWidth * 0.5,
       child: Lottie.asset(
-        'lib/assets/animation/login.json',
+        'assets/animation/login.json', // Fixed: was lib/assets/...
         fit: BoxFit.contain,
       ),
     );

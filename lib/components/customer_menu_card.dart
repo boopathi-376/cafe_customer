@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import '../../models/menu_items.dart';
-import '../view/product_screen.dart';
+import 'package:cafe/models/menu_items.dart';
+import 'package:cafe/view/product_screen.dart';
 
 class CustomerMenuCard extends StatelessWidget {
   final MenuItem item;

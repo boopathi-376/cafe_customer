@@ -1,47 +1,33 @@
-import 'package:cafe/provider/rating_provider.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-// import 'package:firebase_dynamic_links/firebase_dynamic_links.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:provider/provider.dart';
 
 import 'firebase_options.dart';
-import 'package:cafe/provider/auth_provider.dart';
-import 'package:cafe/provider/cart_provider.dart';
-import 'package:cafe/provider/menu_provider.dart';
-import 'package:cafe/provider/order_provider.dart';
-import 'package:cafe/provider/user_provider.dart';
-import 'package:cafe/theme/app_theme.dart';
-import 'package:cafe/view/auth_screen/verification_screen.dart';
-import 'package:cafe/view/splash_screen.dart';
+import 'provider/auth_provider.dart';
+import 'provider/cart_provider.dart';
+import 'provider/menu_provider.dart';
+import 'provider/order_provider.dart';
+import 'provider/user_provider.dart';
+import 'theme/app_theme.dart';
+import 'view/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(MyApp());
+  await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform);
+
+  // Enable Firestore offline persistence
+  FirebaseFirestore.instance.settings = const Settings(
+    persistenceEnabled: true,
+    cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
+  );
+
+  runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
+class MyApp extends StatelessWidget {
   const MyApp({super.key});
-
-  @override
-  State<MyApp> createState() => _MyAppState();
-}
-
-class _MyAppState extends State<MyApp> {
-  final GlobalKey<NavigatorState> _navigatorKey = GlobalKey<NavigatorState>();
-
-  @override
-  void initState() {
-    super.initState();
-    // _handleDynamicLinks(); // Removed deprecated dynamic links
-  }
-
-  /*
-  void _handleDynamicLinks() async {
-     // Dynamic Links logic removed as the package is deprecated.
-     // Migrate to App Links / Universal Links.
-  }
-  */
 
   @override
   Widget build(BuildContext context) {
@@ -52,14 +38,14 @@ class _MyAppState extends State<MyApp> {
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => OrderProvider()),
         ChangeNotifierProvider(create: (_) => UserProvider()),
-        ChangeNotifierProvider(create: (_) => RatingProvider()),
+        // RatingProvider is intentionally NOT global —
+        // it is scoped per-screen in rate_order_screen.dart
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         title: 'Happy Mug',
         theme: AppTheme.darkTheme,
         home: const SplashScreen(),
-        navigatorKey: _navigatorKey, // 🔑 For pushing navigation from initState
       ),
     );
   }

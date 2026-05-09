@@ -1,459 +1,318 @@
-import 'package:cafe/view/rate_order_screen.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../models/enums.dart';
 import '../models/order.dart';
-import '../models/enums.dart'; // Import Enums
 import '../provider/auth_provider.dart';
+import '../provider/order_provider.dart';
+import '../provider/rating_provider.dart';
 import '../service/order_service.dart';
 import 'order_update_screen/order_tracking_screen.dart';
+import 'rate_order_screen.dart';
 
-class ViewOrdersScreen extends StatelessWidget {
+class ViewOrdersScreen extends StatefulWidget {
   const ViewOrdersScreen({super.key});
 
-  bool canCancelOrder(CafeOrder order) {
-    return order.status == OrderStatus.pending;
+  @override
+  State<ViewOrdersScreen> createState() => _ViewOrdersScreenState();
+}
+
+class _ViewOrdersScreenState extends State<ViewOrdersScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final uid =
+          Provider.of<AuthenticationProvider>(context, listen: false)
+              .user
+              ?.uid;
+      if (uid != null) {
+        Provider.of<OrderProvider>(context, listen: false)
+            .listenToOrders(uid);
+      }
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    final authProvider = Provider.of<AuthenticationProvider>(context);
-    final uid = authProvider.user?.uid ?? "";
-
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
 
     return Scaffold(
-      backgroundColor: colorScheme.surface,
+      backgroundColor: cs.surface,
       appBar: AppBar(
-        title: Text(
-          "Your Orders",
-          style: textTheme.titleMedium?.copyWith(color: colorScheme.onSurface),
-        ),
+        title: Text('Your Orders',
+            style: tt.titleMedium?.copyWith(color: cs.onSurface)),
         centerTitle: true,
-        backgroundColor: colorScheme.surface,
-        iconTheme: IconThemeData(color: colorScheme.onPrimary),
+        backgroundColor: cs.surface,
+        automaticallyImplyLeading: false,
       ),
-      body:
-          uid.isEmpty
-              ? Center(
-                child: Text(
-                  "You're not logged in.",
-                  style: textTheme.bodyMedium,
-                ),
-              )
-              : StreamBuilder<List<CafeOrder>>(
-                stream: OrderService().getUserOrders(uid),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+      body: Consumer<OrderProvider>(
+        builder: (context, orderProvider, _) {
+          if (orderProvider.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (orderProvider.error != null) {
+            return Center(child: Text(orderProvider.error!));
+          }
+          final orders = orderProvider.orders;
+          if (orders.isEmpty) {
+            return Center(
+                child: Text('No orders found.', style: tt.bodyMedium));
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: orders.length,
+            itemBuilder: (context, index) =>
+                _OrderCard(order: orders[index]),
+          );
+        },
+      ),
+    );
+  }
+}
 
-                  if (snapshot.hasError) {
-                    return Center(child: Text("Error: ${snapshot.error}"));
-                  }
+class _OrderCard extends StatelessWidget {
+  final CafeOrder order;
+  const _OrderCard({required this.order});
 
-                  final orders = snapshot.data ?? [];
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final date =
+        DateFormat.yMMMd().add_jm().format(order.createdAt);
 
-                  if (orders.isEmpty) {
-                    return Center(
-                      child: Text(
-                        "No orders found.",
-                        style: textTheme.bodyMedium,
-                      ),
-                    );
-                  }
-
-                  return ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: orders.length,
-                    itemBuilder: (context, index) {
-                      final order = orders[index];
-                      final formattedDate = DateFormat.yMMMd().add_jm().format(
-                        order.createdAt,
-                      );
-
-                      return Card(
-                        color: colorScheme.surface,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        margin: const EdgeInsets.only(bottom: 16),
-                        elevation: 3,
-                        child: ExpansionTile(
-                          onExpansionChanged: (expanded) async {
-                            if (expanded) {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder:
-                                      (_) => OrderTrackingScreen(
-                                        orderId: order.id ?? '',
-                                      ),
-                                ),
-                              );
-                            }
-                          },
-                          tilePadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
-                          childrenPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          title: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    order.customerName,
-                                    style: textTheme.titleMedium,
-                                  ),
-                                  _buildStatusBadge(
-                                    order,
-                                    colorScheme,
-                                    textTheme,
-                                    context,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.phone,
-                                    size: 16,
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    order.customerPhone,
-                                    style: textTheme.bodySmall,
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    "Total: ₹${order.totalAmount.toStringAsFixed(2)}",
-                                    style: textTheme.bodyMedium?.copyWith(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  Text(
-                                    formattedDate,
-                                    style: textTheme.bodySmall?.copyWith(
-                                      color: colorScheme.onSurfaceVariant,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              if (order.notes != null &&
-                                  order.notes!.trim().isNotEmpty)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 6),
-                                  child: Text(
-                                    "Note: ${order.notes}",
-                                    style: textTheme.bodySmall,
-                                  ),
-                                ),
-                            ],
-                          ),
-                          children: [
-                            const Divider(),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Text(
-                                "Items",
-                                style: textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            ...order.items.map(
-                              (item) => Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 4.0,
-                                ),
-                                child: Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      "${item.name} x${item.quantity}",
-                                      style: textTheme.bodySmall,
-                                    ),
-                                    Text(
-                                      "₹${(item.price).toStringAsFixed(2)}",
-                                      style: textTheme.bodySmall,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            if (canCancelOrder(order))
-                              Align(
-                                alignment: Alignment.centerRight,
-                                child: TextButton.icon(
-                                  icon: const Icon(
-                                    Icons.cancel,
-                                    color: Colors.redAccent,
-                                  ),
-                                  label: const Text(
-                                    "Cancel Order",
-                                    style: TextStyle(color: Colors.redAccent),
-                                  ),
-                                  onPressed: () async {
-                                    String? selectedReason;
-                                    final confirm = await showDialog<bool>(
-                                      context: context,
-                                      builder: (ctx) {
-                                        return StatefulBuilder(
-                                          builder:
-                                              (
-                                                context,
-                                                setState,
-                                              ) => AlertDialog(
-                                                title: const Text(
-                                                  "Cancel Order",
-                                                ),
-                                                content: SingleChildScrollView(
-                                                  child: Column(
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      const Text(
-                                                        "Please select a reason:",
-                                                      ),
-                                                      const SizedBox(
-                                                        height: 12,
-                                                      ),
-                                                      DropdownButtonFormField<
-                                                        String
-                                                      >(
-                                                        value: selectedReason,
-                                                        isExpanded: true,
-                                                        decoration:
-                                                            const InputDecoration(
-                                                              border:
-                                                                  OutlineInputBorder(),
-                                                            ),
-                                                        items: const [
-                                                          DropdownMenuItem(
-                                                            value:
-                                                                "I need to cancel the order",
-                                                            child: Text(
-                                                              "I need to cancel the order",
-                                                            ),
-                                                          ),
-                                                          DropdownMenuItem(
-                                                            value:
-                                                                "Wrong delivery address",
-                                                            child: Text(
-                                                              "Wrong delivery address",
-                                                            ),
-                                                          ),
-                                                          DropdownMenuItem(
-                                                            value:
-                                                                "Ordered by mistake",
-                                                            child: Text(
-                                                              "Ordered by mistake",
-                                                            ),
-                                                          ),
-                                                          DropdownMenuItem(
-                                                            value: "Other",
-                                                            child: Text(
-                                                              "Other",
-                                                            ),
-                                                          ),
-                                                        ],
-                                                        onChanged: (value) {
-                                                          setState(
-                                                            () =>
-                                                                selectedReason =
-                                                                    value,
-                                                          );
-                                                        },
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed:
-                                                        () => Navigator.pop(
-                                                          ctx,
-                                                          false,
-                                                        ),
-                                                    child: const Text("Back"),
-                                                  ),
-                                                  TextButton(
-                                                    onPressed: () {
-                                                      if (selectedReason !=
-                                                          null) {
-                                                        Navigator.pop(
-                                                          ctx,
-                                                          true,
-                                                        );
-                                                      } else {
-                                                        ScaffoldMessenger.of(
-                                                          context,
-                                                        ).showSnackBar(
-                                                          const SnackBar(
-                                                            content: Text(
-                                                              "Please select a reason to cancel",
-                                                            ),
-                                                          ),
-                                                        );
-                                                      }
-                                                    },
-                                                    child: const Text(
-                                                      "Confirm",
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                        );
-                                      },
-                                    );
-
-                                    if (confirm == true &&
-                                        selectedReason != null) {
-                                      // Use the OrderService directly
-                                      await OrderService().cancelOrder(
-                                        order.id!,
-                                        selectedReason!,
-                                      );
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text("Order cancelled."),
-                                        ),
-                                      );
-                                    }
-                                  },
-                                ),
-                              ),
-                          ],
-                        ),
-                      );
-                    },
-                  );
-                },
+    return Card(
+      color: cs.surface,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16)),
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 3,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) =>
+                OrderTrackingScreen(orderId: order.id ?? ''),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(order.customerName,
+                        style: tt.titleMedium,
+                        overflow: TextOverflow.ellipsis),
+                  ),
+                  _StatusBadge(order: order),
+                ],
               ),
+              const SizedBox(height: 4),
+              Text(date,
+                  style: tt.bodySmall
+                      ?.copyWith(color: cs.onSurfaceVariant)),
+              const SizedBox(height: 4),
+              Text('Total: ₹${order.totalAmount.toStringAsFixed(2)}',
+                  style: tt.bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.bold)),
+              if (order.notes != null &&
+                  order.notes!.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text('Note: ${order.notes}',
+                    style: tt.bodySmall),
+              ],
+              const Divider(height: 20),
+              ...order.items.map((item) => Padding(
+                    padding:
+                        const EdgeInsets.symmetric(vertical: 2),
+                    child: Row(
+                      mainAxisAlignment:
+                          MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('${item.name} x${item.quantity}',
+                            style: tt.bodySmall),
+                        Text(
+                            '₹${(item.price * item.quantity).toStringAsFixed(2)}',
+                            style: tt.bodySmall),
+                      ],
+                    ),
+                  )),
+              if (order.status.canCancel) ...[
+                const SizedBox(height: 12),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton.icon(
+                    icon: const Icon(Icons.cancel,
+                        color: Colors.redAccent),
+                    label: const Text('Cancel Order',
+                        style: TextStyle(color: Colors.redAccent)),
+                    onPressed: () =>
+                        _showCancelDialog(context, order),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
     );
   }
 
-  Widget _buildStatusBadge(
-    CafeOrder order,
-    ColorScheme colorScheme,
-    TextTheme textTheme,
-    BuildContext context,
-  ) {
-    final status = order.status;
-
-    Color backgroundColor;
-    Color textColor;
-    IconData icon;
-    String label;
-    VoidCallback? onTap;
-
-    if (status == OrderStatus.delivered) {
-      if (order.hasRated) {
-        backgroundColor = Colors.green.shade100;
-        textColor = Colors.green.shade800;
-        icon = Icons.check_circle;
-        label = 'Rated';
-        onTap = null; // No action
-      } else {
-        backgroundColor = Colors.amber.shade100;
-        textColor = Colors.amber.shade800;
-        icon = Icons.star_half;
-        label = 'Rate Now';
-        onTap = () async {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder:
-                  (_) => RateOrderScreen(
-                    orderId: order.id!, // from your order object
-                    userId: order.uid,
-                    menuItemId: order.items.toString(),
-                  ),
-            ),
-          );
-
-          // Optional: Refresh or update state after returning from rating screen
-          // Ideally this should be handled by a service or cloud function
-          await FirebaseFirestore.instance
-              .collection('orders')
-              .doc(order.id)
-              .update({'hasRated': true});
-        };
-      }
-    } else {
-      switch (status) {
-        case OrderStatus.completed:
-          backgroundColor = colorScheme.secondaryContainer;
-          textColor = colorScheme.onSecondaryContainer;
-          icon = Icons.check_circle;
-          label = 'Completed';
-          break;
-        case OrderStatus.pending:
-          backgroundColor = colorScheme.tertiaryContainer;
-          textColor = colorScheme.onTertiaryContainer;
-          icon = Icons.timelapse;
-          label = 'Pending';
-          break;
-        case OrderStatus.cancelled:
-          backgroundColor = colorScheme.errorContainer;
-          textColor = colorScheme.onErrorContainer;
-          icon = Icons.cancel;
-          label = 'Cancelled';
-          break;
-        default:
-          backgroundColor = colorScheme.surfaceContainerHighest;
-          textColor = colorScheme.onSurfaceVariant;
-          icon = Icons.help_outline;
-          label = status.name;
-      }
-    }
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: backgroundColor,
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 16, color: textColor),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: textTheme.labelSmall?.copyWith(
-                fontWeight: FontWeight.w500,
-                color: textColor,
-              ),
+  Future<void> _showCancelDialog(
+      BuildContext context, CafeOrder order) async {
+    String? reason;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Cancel Order'),
+          content: DropdownButtonFormField<String>(
+            value: reason,
+            isExpanded: true,
+            decoration:
+                const InputDecoration(border: OutlineInputBorder()),
+            hint: const Text('Select a reason'),
+            items: const [
+              DropdownMenuItem(
+                  value: 'Ordered by mistake',
+                  child: Text('Ordered by mistake')),
+              DropdownMenuItem(
+                  value: 'Wrong delivery address',
+                  child: Text('Wrong delivery address')),
+              DropdownMenuItem(
+                  value: 'I need to cancel',
+                  child: Text('I need to cancel')),
+              DropdownMenuItem(
+                  value: 'Other', child: Text('Other')),
+            ],
+            onChanged: (v) => setState(() => reason = v),
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Back')),
+            TextButton(
+              onPressed: reason == null
+                  ? null
+                  : () => Navigator.pop(ctx, true),
+              child: const Text('Confirm'),
             ),
           ],
         ),
+      ),
+    );
+
+    if (confirmed == true && reason != null) {
+      await Provider.of<OrderProvider>(context, listen: false)
+          .cancelOrder(order.id!, reason!);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Order cancelled.')));
+      }
+    }
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  final CafeOrder order;
+  const _StatusBadge({required this.order});
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final status = order.status;
+
+    // Rate Now badge for delivered + unrated
+    if (status == OrderStatus.delivered && !order.hasRated) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(20),
+        onTap: () async {
+          // Use first item's real menuItemId — not toString()
+          final menuItemId = order.items.isNotEmpty
+              ? order.items.first.menuItemId
+              : '';
+          await Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => ChangeNotifierProvider(
+                create: (_) => RatingProvider(),
+                child: RateOrderScreen(
+                  orderId: order.id!,
+                  userId: order.uid,
+                  menuItemId: menuItemId,
+                ),
+              ),
+            ),
+          );
+          // Mark as rated after returning
+          await OrderService().markAsRated(order.id!);
+        },
+        child: _badge(
+            Icons.star_half, 'Rate Now',
+            Colors.amber.shade100, Colors.amber.shade800, tt),
+      );
+    }
+
+    if (status == OrderStatus.delivered && order.hasRated) {
+      return _badge(Icons.check_circle, 'Rated',
+          Colors.green.shade100, Colors.green.shade800, tt);
+    }
+
+    final (bg, fg, icon, label) = switch (status) {
+      OrderStatus.pending => (
+          cs.tertiaryContainer,
+          cs.onTertiaryContainer,
+          Icons.timelapse,
+          status.label
+        ),
+      OrderStatus.cancelled => (
+          cs.errorContainer,
+          cs.onErrorContainer,
+          Icons.cancel,
+          status.label
+        ),
+      OrderStatus.completed => (
+          cs.secondaryContainer,
+          cs.onSecondaryContainer,
+          Icons.check_circle,
+          status.label
+        ),
+      _ => (
+          cs.surfaceContainerHighest,
+          cs.onSurfaceVariant,
+          Icons.local_shipping_outlined,
+          status.label
+        ),
+    };
+
+    return _badge(icon, label, bg, fg, tt);
+  }
+
+  Widget _badge(IconData icon, String label, Color bg, Color fg,
+      TextTheme tt) {
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+          color: bg, borderRadius: BorderRadius.circular(20)),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: fg),
+          const SizedBox(width: 4),
+          Text(label,
+              style: tt.labelSmall?.copyWith(
+                  fontWeight: FontWeight.w600, color: fg)),
+        ],
       ),
     );
   }

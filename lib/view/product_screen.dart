@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../models/menu_items.dart';
-import '../../models/cart_item.dart';
-import '../../provider/cart_provider.dart';
-import '../../provider/auth_provider.dart';
-import '../../service/cart_service.dart';
-import '../components/customer_menu_card.dart';
+import 'package:cafe/models/menu_items.dart';
+import 'package:cafe/models/cart_item.dart';
+import 'package:cafe/provider/cart_provider.dart';
+import 'package:cafe/provider/auth_provider.dart';
+import 'package:cafe/service/cart_service.dart';
+import 'package:cafe/components/customer_menu_card.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final MenuItem item;

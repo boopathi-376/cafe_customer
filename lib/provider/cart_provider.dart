@@ -5,17 +5,21 @@ import '../models/menu_items.dart';
 class CartEntry {
   final MenuItem menuItem;
   int quantity;
-
   CartEntry({required this.menuItem, required this.quantity});
 }
 
 class CartProvider with ChangeNotifier {
   final List<CartEntry> _items = [];
 
-  List<CartEntry> get items => _items;
+  List<CartEntry> get items => List.unmodifiable(_items);
+  int get itemCount => _items.length;
+
+  double get totalAmount => _items.fold(
+      0, (sum, e) => sum + e.menuItem.price * e.quantity);
 
   void addToCart(MenuItem item, int quantity) {
-    final index = _items.indexWhere((e) => e.menuItem.menuId == item.menuId);
+    final index =
+        _items.indexWhere((e) => e.menuItem.menuId == item.menuId);
     if (index != -1) {
       _items[index].quantity += quantity;
     } else {
@@ -30,22 +34,12 @@ class CartProvider with ChangeNotifier {
   }
 
   void updateQuantity(MenuItem item, int change) {
-    final index = _items.indexWhere((e) => e.menuItem.menuId == item.menuId);
-    if (index != -1) {
-      _items[index].quantity += change;
-      if (_items[index].quantity <= 0) {
-        _items.removeAt(index);
-      }
-      notifyListeners();
-    }
-  }
-
-  double get totalAmount {
-    double total = 0;
-    for (var item in _items) {
-      total += item.menuItem.price * item.quantity;
-    }
-    return total;
+    final index =
+        _items.indexWhere((e) => e.menuItem.menuId == item.menuId);
+    if (index == -1) return;
+    _items[index].quantity += change;
+    if (_items[index].quantity <= 0) _items.removeAt(index);
+    notifyListeners();
   }
 
   void clearCart() {
@@ -53,33 +47,23 @@ class CartProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  int get itemCount => _items.length;
-
-  void loadFromFirestore(
-    List<CartItem> cartItems,
-    List<MenuItem> allMenuItems,
-  ) {
+  /// Loads cart from Firestore CartItem list.
+  /// Builds MenuItem directly from CartItem data — no separate menu fetch needed.
+  void loadFromCartItems(List<CartItem> cartItems) {
     _items.clear();
-
-    for (var cart in cartItems) {
-      final matched = allMenuItems.firstWhere(
-        (item) => item.menuId == cart.menuId, // ✅ FIXED: match with menuId
-        orElse:
-            () => MenuItem(
-              menuId: cart.menuId,
-              name: cart.name,
-              description: cart.subtitle ?? '',
-              imageUrl: cart.imageUrl,
-              price: cart.price,
-              category: '',
-              isAvailable: true,
-              isFeatured: false,
-            ),
+    for (final cart in cartItems) {
+      final menuItem = MenuItem(
+        menuId: cart.menuId,
+        name: cart.name,
+        description: cart.subtitle ?? '',
+        imageUrl: cart.imageUrl,
+        price: cart.price,
+        category: '',
+        isAvailable: true,
+        isFeatured: false,
       );
-
-      _items.add(CartEntry(menuItem: matched, quantity: cart.quantity));
+      _items.add(CartEntry(menuItem: menuItem, quantity: cart.quantity));
     }
-
     notifyListeners();
   }
 }

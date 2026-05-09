@@ -1,64 +1,71 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../models/user.dart';
+import '../core/constants/firestore_paths.dart';
+import '../core/error/app_exception.dart';
 
 class AuthenticationService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final String userCollection = 'customeruser'; // your Firestore collection
 
-  /// Sign in with email and password (customer only)
   Future<UserModel?> signIn(String email, String password) async {
     try {
-      final query = await _firestore
-          .collection(userCollection)
-          .where('email', isEqualTo: email)
-          .limit(1)
-          .get();
-
-      if (query.docs.isEmpty) {
-        throw Exception("No customer account found for this email.");
-      }
-
       final result = await _auth.signInWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      final user = result.user;
-
-      if (user == null) {
-        throw Exception("User not found.");
-      }
+      final user = result.user!;
 
       if (!user.emailVerified) {
-        throw Exception("Email not verified. Please verify your email.");
+        await _auth.signOut();
+        throw const AppException(
+            'Please verify your email before logging in. Check your inbox.');
       }
 
-      final uid = user.uid;
-      final doc = await _firestore.collection(userCollection).doc(uid).get();
+      final doc = await _firestore
+          .collection(FirestorePaths.users)
+          .doc(user.uid)
+          .get();
 
       if (!doc.exists) {
         await _auth.signOut();
-        throw Exception("Access denied. Customer account only.");
+        throw const AppException('Account not found.');
       }
 
-      return UserModel.fromMap(doc.data() as Map<String, dynamic>, uid);
+      return UserModel.fromMap(doc.data()!, user.uid);
+    } on FirebaseAuthException catch (e) {
+      throw AppException.fromFirebaseAuth(e);
+    } on AppException {
+      rethrow;
     } catch (e) {
-      throw Exception("Sign-in failed: ${e.toString()}");
+      throw const AppException('An unexpected error occurred.');
     }
   }
 
-  /// Register new customer and send email verification
-  Future<UserModel?> register(String email, String password, String name, {String phone = ""}) async {
+  Future<UserModel?> register(
+    String email,
+    String password,
+    String name, {
+    String phone = '',
+  }) async {
     try {
       final result = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
 
-      // Send email verification
-      await result.user!.sendEmailVerification();
+      await result.user!.updateDisplayName(name);
+
+      await result.user!.sendEmailVerification(
+        ActionCodeSettings(
+          url: 'https://cafe-83d88.firebaseapp.com/verified',
+          handleCodeInApp: false,
+          androidPackageName: 'com.example.cafe',
+          androidInstallApp: true,
+          androidMinimumVersion: '1',
+        ),
+      );
 
       final newUser = UserModel(
         uid: result.user!.uid,
@@ -70,85 +77,99 @@ class AuthenticationService {
       );
 
       await _firestore
-          .collection(userCollection)
+          .collection(FirestorePaths.users)
           .doc(result.user!.uid)
           .set(newUser.toMap());
 
+      // Do NOT sign out here — keep user signed in so we can
+      // call reload() to check verification status later
       return newUser;
+    } on FirebaseAuthException catch (e) {
+      throw AppException.fromFirebaseAuth(e);
     } catch (e) {
-      throw Exception("Registration failed: ${e.toString()}");
+      throw const AppException('Registration failed. Please try again.');
     }
   }
 
-  /// Send email verification to current user
   Future<void> sendEmailVerification() async {
     final user = _auth.currentUser;
     if (user != null && !user.emailVerified) {
-      await user.sendEmailVerification();
+      // ActionCodeSettings makes the email show "Happy Mug" as the app name
+      // and uses a continue URL that looks professional
+      await user.sendEmailVerification(
+        ActionCodeSettings(
+          url: 'https://cafe-83d88.firebaseapp.com/verified',
+          handleCodeInApp: false,
+          androidPackageName: 'com.example.cafe',
+          androidInstallApp: true,
+          androidMinimumVersion: '1',
+        ),
+      );
     }
   }
 
-  /// Check if email is verified
+  /// Reloads the current user from Firebase and returns verified status.
+  /// Works correctly whether user is freshly registered or returning.
   Future<bool> isEmailVerified() async {
-    final user = _auth.currentUser;
-    await user?.reload();
-    return user?.emailVerified ?? false;
+    try {
+      final user = _auth.currentUser;
+      if (user == null) return false;
+      // Force reload from Firebase server to get latest emailVerified flag
+      await user.reload();
+      // Must re-fetch currentUser after reload — the old reference is stale
+      return _auth.currentUser?.emailVerified ?? false;
+    } catch (_) {
+      return false;
+    }
   }
 
-
-
-  /// Sign out
   Future<void> signOut() async {
     await _auth.signOut();
   }
 
-  /// Auth state changes stream
-  Stream<UserModel?> get user {
+  /// Stream that emits UserModel when auth state changes.
+  /// Only emits a non-null value when email is verified.
+  Stream<UserModel?> get userStream {
     return _auth.authStateChanges().asyncMap((user) async {
       if (user == null) return null;
-      return await _getUserFromFirestore(user.uid);
+      // Don't load profile for unverified users
+      if (!user.emailVerified) return null;
+      try {
+        final doc = await _firestore
+            .collection(FirestorePaths.users)
+            .doc(user.uid)
+            .get();
+        if (doc.exists) {
+          return UserModel.fromMap(doc.data()!, user.uid);
+        }
+        return null;
+      } catch (_) {
+        return null;
+      }
     });
   }
 
-  /// Fetch user from Firestore
-  Future<UserModel?> _getUserFromFirestore(String uid) async {
-    try {
-      final doc = await _firestore.collection(userCollection).doc(uid).get();
-      if (doc.exists) {
-        return UserModel.fromMap(doc.data() as Map<String, dynamic>, uid);
-      }
-      return null;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  /// Add new address for user
   Future<void> addAddress(String uid, AddressModel newAddress) async {
-    final docRef = _firestore.collection(userCollection).doc(uid);
-    final snapshot = await docRef.get();
-
-    List<dynamic> currentAddresses = snapshot.data()?['addresses'] ?? [];
-
-    // Add the new address (as map)
-    currentAddresses.add(newAddress.toMap());
-
-    await docRef.update({'addresses': currentAddresses});
+    final docRef = _firestore.collection(FirestorePaths.users).doc(uid);
+    await _firestore.runTransaction((tx) async {
+      final snap = await tx.get(docRef);
+      final current = List<dynamic>.from(snap.data()?['addresses'] ?? []);
+      current.add(newAddress.toMap());
+      tx.update(docRef, {'addresses': current});
+    });
   }
 
-  /// Set the current address by marking one as isCurrent
   Future<void> setCurrentAddress(String uid, String selectedAddress) async {
-    final docRef = _firestore.collection(userCollection).doc(uid);
-    final snapshot = await docRef.get();
-
-    List<dynamic> currentAddresses = snapshot.data()?['addresses'] ?? [];
-
-    final updatedAddresses = currentAddresses.map((addressMap) {
-      Map<String, dynamic> map = Map<String, dynamic>.from(addressMap);
-      map['isCurrent'] = (map['address'] == selectedAddress);
-      return map;
-    }).toList();
-
-    await docRef.update({'addresses': updatedAddresses});
+    final docRef = _firestore.collection(FirestorePaths.users).doc(uid);
+    await _firestore.runTransaction((tx) async {
+      final snap = await tx.get(docRef);
+      final current = List<dynamic>.from(snap.data()?['addresses'] ?? []);
+      final updated = current.map((a) {
+        final m = Map<String, dynamic>.from(a as Map);
+        m['isCurrent'] = m['address'] == selectedAddress;
+        return m;
+      }).toList();
+      tx.update(docRef, {'addresses': updated});
+    });
   }
 }
